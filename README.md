@@ -1,11 +1,11 @@
 ---
 page_type: sample
 languages:
-- csharp
+- java
 products:
-- dotnet
-description: "Add 150 character max description"
-urlFragment: "update-this-to-unique-url-stub"
+- CosmosDB Document
+description: "This Java reference sample shows how to CosmosDB Pagination can be achieved with ContinuationToken"
+
 ---
 
 # Official Microsoft Sample
@@ -39,16 +39,27 @@ Outline the required components and tools that a user might need to have on thei
 
 ## Setup
 
-Explain how to prepare the sample once the user clones or downloads the repository. The section should outline every step necessary to install dependencies and set up any settings (for example, API keys and output folders).
+git clone https://github.com/Azure-Samples/azure-cosmosdb-java-pagination.git 
 
-## Runnning the sample
+cd azure-cosmosdb-java-pagination 
 
-Outline step-by-step instructions to execute the sample and see its output. Include steps for executing the sample from the IDE, starting specific services in the Azure portal or anything related to the overall launch of the code.
+Update AccountSettings.java with cosmosdb hostname and key 
+
+
+## Running the sample
+
+Run Main.Java 
+
+This method returns a map with nextContinuationtoken and prevContinuationToken with resultsets Which can be used in UI
+QueryPageByPage();
+
+This method shows how to querying a Document with a list saved in a Collection into Cache which can be used sliced in UI code for pagination
+This example shows EHCache, however for centralized management rediscache can also be used
+executeSimpleQueryWithList();
 
 ## Key concepts
 
-Provide users with more context on the tools and services used in the sample. Explain some of the code that is being used and how services interact with each other.
-
+CosmosDB ContinuationToken : Pagination of records can then be retrieved by supplying the continuation token in subsequent calls. The coordination between the CosmosDB service and the client is taken care of behind the scenes by the SDKs.
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
