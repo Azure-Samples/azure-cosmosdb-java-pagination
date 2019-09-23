@@ -3,12 +3,12 @@ page_type: sample
 languages:
 - java
 products:
-- CosmosDB Document
-description: "This Java reference sample shows how to CosmosDB Pagination can be achieved with ContinuationToken"
-
+- azure
+- azure-cosmos-db
+description: "This Java reference sample shows how CosmosDB Pagination can be achieved with ContinuationToken"
 ---
 
-# Official Microsoft Sample
+# Achieving CosmosDB Pagination with ContinuationToken
 
 <!-- 
 Guidelines on README format: https://review.docs.microsoft.com/help/onboard/admin/samples/concepts/readme-template?branch=master
