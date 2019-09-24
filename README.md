@@ -18,8 +18,6 @@ Guidance on onboarding samples to docs.microsoft.com/samples: https://review.doc
 Taxonomies for products and languages: https://review.docs.microsoft.com/new-hope/information-architecture/metadata/taxonomies?branch=master
 -->
 
-Give a short description for your sample here. What does it do and why is it important?
-
 ## Contents
 
 Outline the file contents of the repository. It helps users navigate the codebase, build configuration and any related assets.
@@ -39,9 +37,11 @@ Outline the required components and tools that a user might need to have on thei
 
 ## Setup
 
+```bash
 git clone https://github.com/Azure-Samples/azure-cosmosdb-java-pagination.git 
 
 cd azure-cosmosdb-java-pagination 
+```
 
 Update AccountSettings.java with cosmosdb hostname and key 
 
