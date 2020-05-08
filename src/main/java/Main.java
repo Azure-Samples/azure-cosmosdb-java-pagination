@@ -1,21 +1,28 @@
-import com.microsoft.azure.cosmosdb.*;
-import com.microsoft.azure.cosmosdb.rx.AsyncDocumentClient;
+
 import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Element;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import rx.Observable;
-import rx.Scheduler;
-import rx.schedulers.Schedulers;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.azure.cosmos.ConnectionPolicy;
+import com.azure.cosmos.ConsistencyLevel;
+import com.azure.cosmos.FeedOptions;
+import com.azure.cosmos.FeedResponse;
+import com.azure.cosmos.internal.AsyncDocumentClient;
+import com.azure.cosmos.internal.Document;
 
 
 public class Main {
@@ -28,7 +35,7 @@ public class Main {
 
     public Main() {
         executorService = Executors.newFixedThreadPool(100);
-        scheduler = Schedulers.from(executorService);
+        scheduler = Schedulers.fromExecutor(executorService);
     }
 
     public void close() {
@@ -60,8 +67,8 @@ public class Main {
         client = new AsyncDocumentClient.Builder()
                 .withServiceEndpoint(AccountSettings.HOST)
                 .withMasterKeyOrResourceToken(AccountSettings.MASTER_KEY)
-                .withConnectionPolicy(ConnectionPolicy.GetDefault())
-                .withConsistencyLevel(ConsistencyLevel.Eventual)
+                .withConnectionPolicy(ConnectionPolicy.getDefaultPolicy())
+                .withConsistencyLevel(ConsistencyLevel.EVENTUAL)
                 .build();
 
         //Demo CosmosDB Pagination with ContinuationToken
@@ -116,29 +123,28 @@ public class Main {
         FeedOptions queryOptions = new FeedOptions();
 
         // note that setMaxItemCount sets the number of items to return in a single page result
-        queryOptions.setMaxItemCount(pageSize);
+        queryOptions.maxItemCount(pageSize);
         queryOptions.setEnableCrossPartitionQuery(true);
-        queryOptions.setRequestContinuation(continuationToken);
+        queryOptions.requestContinuation(continuationToken);
 
         String collectionName = "volcanoCollection";
         String sql = "SELECT * FROM volcanoCollection";
 
         String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
-        Observable<FeedResponse<Document>> queryObservable =
+        Flux<FeedResponse<Document>> queryObservable =
                 client.queryDocuments(collectionLink,
-                        sql, queryOptions);
+                        sql, queryOptions);              
 
         //Observable to Interator
-        Iterator<FeedResponse<Document>> it = queryObservable.toBlocking().getIterator();
-
-        FeedResponse<Document> page = it.next();
+        Mono<FeedResponse<Document>> it = queryObservable.next();
+        FeedResponse<Document> page=it.block();
         List<Document> results = page.getResults();
         for (Document doc : results) {
             JSONObject obj = new JSONObject(doc.toJson());
             String id = obj.getString("id");
 
         }
-        continuationToken = page.getResponseContinuation();
+        continuationToken = page.getContinuationToken();
         System.out.println("continuationToken2: " + continuationToken);
         map.put(continuationToken, results);
         return map;
@@ -150,7 +156,7 @@ public class Main {
 
         FeedOptions queryOptions = new FeedOptions();
         // note that setMaxItemCount sets the number of items to return in a single page result
-        queryOptions.setMaxItemCount(500);
+        queryOptions.maxItemCount(500);
         queryOptions.setEnableCrossPartitionQuery(true);
 
         HashMap<Integer, List<JSONObject>> docsPerPage = new HashMap<>();
@@ -158,11 +164,11 @@ public class Main {
         String collectionName = "ListItemDetailsCollection";
 
         String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
-        Observable<FeedResponse<Document>> queryObservable =
+        Flux<FeedResponse<Document>> queryObservable =
                 client.queryDocuments(collectionLink,
                         "SELECT * FROM ListItemDetailsCollection", queryOptions);
 
-        Iterator<FeedResponse<Document>> it = queryObservable.toBlocking().getIterator();
+        Mono<FeedResponse<Document>> it = queryObservable.next();
 
         //1. Create a cache manager
         CacheManager cm = CacheManager.getInstance();
@@ -171,7 +177,7 @@ public class Main {
         Cache cache = cm.getCache("listDocCache");
 
 
-        FeedResponse<Document> page = it.next();
+        FeedResponse<Document> page = it.block();
         List<Document> results = page.getResults();
         System.out.println("count " + results.size());
         for (Document doc : results) {
