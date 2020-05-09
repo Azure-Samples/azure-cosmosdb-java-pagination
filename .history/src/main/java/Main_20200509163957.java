@@ -125,7 +125,7 @@ public class Main {
         String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
         Flux<FeedResponse<Document>> queryObservable =
                 client.queryDocuments(collectionLink,
-                        sql, queryOptions);
+                        sql, queryOptions);              
 
         //Observable to Interator
         Mono<FeedResponse<Document>> it = queryObservable.next();

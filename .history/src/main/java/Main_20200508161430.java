@@ -1,7 +1,7 @@
+
 import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Element;
-
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -24,6 +24,7 @@ import com.azure.cosmos.FeedResponse;
 import com.azure.cosmos.internal.AsyncDocumentClient;
 import com.azure.cosmos.internal.Document;
 
+
 public class Main {
     private final ExecutorService executorService;
     private final Scheduler scheduler;
@@ -42,6 +43,7 @@ public class Main {
         client.close();
     }
 
+
     public static void main(String[] args) {
         Main p = new Main();
 
@@ -56,6 +58,8 @@ public class Main {
         }
         System.exit(0);
     }
+
+
 
     private void getStartedDemo() throws Exception {
         System.out.println("Using Azure Cosmos DB endpoint: " + AccountSettings.HOST);
@@ -73,8 +77,12 @@ public class Main {
         QueryPageByPage();
 
         //Demo Querying a Document with a list saved into Cache which can be used sliced in UI code for pagination
-        executeSimpleQueryWithList();
+       executeSimpleQueryWithList();
+
     }
+
+
+
 
     /*
      Method demonstrated CosmosDB Pagination using ContinuationToken
@@ -88,7 +96,6 @@ public class Main {
 
         do {
             System.out.println("Page " + currentPageNumber);
-            System.out.println("DocumentNumber " + documentNumber);
             String nextContinuationKey = "";
 
             // Loads ALL documents for the current page
@@ -106,6 +113,7 @@ public class Main {
             currentPageNumber++;
         } while (continuationToken != null);
     }
+
 
     /* This method returns continuation token with list of records for pagination on UI or REST API call*/
     private HashMap<String, List<Document>> QueryDocumentsByPage(int currentPageNumber, int pageSize, String continuationToken) throws JSONException {
@@ -125,7 +133,7 @@ public class Main {
         String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
         Flux<FeedResponse<Document>> queryObservable =
                 client.queryDocuments(collectionLink,
-                        sql, queryOptions);
+                        sql, queryOptions);              
 
         //Observable to Interator
         Mono<FeedResponse<Document>> it = queryObservable.next();
@@ -142,12 +150,16 @@ public class Main {
         return map;
     }
 
+
+
     private void executeSimpleQueryWithList() throws JSONException {
 
         FeedOptions queryOptions = new FeedOptions();
         // note that setMaxItemCount sets the number of items to return in a single page result
         queryOptions.maxItemCount(500);
         queryOptions.setEnableCrossPartitionQuery(true);
+
+        HashMap<Integer, List<JSONObject>> docsPerPage = new HashMap<>();
 
         String collectionName = "ListItemDetailsCollection";
 
@@ -163,6 +175,7 @@ public class Main {
 
         //2. Get a cache called "listDocCache" defined in config
         Cache cache = cm.getCache("listDocCache");
+
 
         FeedResponse<Document> page = it.block();
         List<Document> results = page.getResults();
@@ -181,15 +194,17 @@ public class Main {
                 cache.put(new Element(i,jsonObj));
 
                 System.out.println("array item: " + jsonObj.toString());
+
             }
         }
 
-        System.out.println("Elements in the cache" + cache.getKeys().toString());
+     System.out.println("Elements in the cache" + cache.getKeys().toString());
         Element ele = cache.get(0);
 
         //5. Print out the element
         String output = (ele == null ? null : ele.getObjectValue().toString());
         System.out.println("Element in the cache" + output);
+
 
         //6. Is key in cache?
         System.out.println(cache.isKeyInCache(0)); //true
@@ -199,6 +214,10 @@ public class Main {
 
         //7. shut down the cache manager
         cm.shutdown();
+
+
     }
+
+
 }
 
