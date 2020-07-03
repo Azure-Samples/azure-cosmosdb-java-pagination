@@ -17,12 +17,13 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.azure.cosmos.ConnectionPolicy;
 import com.azure.cosmos.ConsistencyLevel;
-import com.azure.cosmos.FeedOptions;
-import com.azure.cosmos.FeedResponse;
-import com.azure.cosmos.internal.AsyncDocumentClient;
-import com.azure.cosmos.internal.Document;
+import com.azure.cosmos.implementation.AsyncDocumentClient;
+import com.azure.cosmos.implementation.ConnectionPolicy;
+import com.azure.cosmos.implementation.Document;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+import com.azure.cosmos.models.FeedResponse;
+
 
 public class Main {
     private final ExecutorService executorService;
@@ -112,12 +113,7 @@ public class Main {
 
         HashMap<String, List<Document>> map = new HashMap<>();
 
-        FeedOptions queryOptions = new FeedOptions();
-
-        // note that setMaxItemCount sets the number of items to return in a single page result
-        queryOptions.maxItemCount(pageSize);
-        queryOptions.setEnableCrossPartitionQuery(true);
-        queryOptions.requestContinuation(continuationToken);
+        CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "volcanoCollection";
         String sql = "SELECT * FROM volcanoCollection";
@@ -131,6 +127,7 @@ public class Main {
         Mono<FeedResponse<Document>> it = queryObservable.next();
         FeedResponse<Document> page=it.block();
         List<Document> results = page.getResults();
+        
         for (Document doc : results) {
             JSONObject obj = new JSONObject(doc.toJson());
             String id = obj.getString("id");
@@ -144,10 +141,7 @@ public class Main {
 
     private void executeSimpleQueryWithList() throws JSONException {
 
-        FeedOptions queryOptions = new FeedOptions();
-        // note that setMaxItemCount sets the number of items to return in a single page result
-        queryOptions.maxItemCount(500);
-        queryOptions.setEnableCrossPartitionQuery(true);
+        CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "ListItemDetailsCollection";
 
