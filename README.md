@@ -5,10 +5,10 @@ languages:
 products:
 - azure
 - azure-cosmos-db
-description: "This Java reference sample shows how CosmosDB Pagination can be achieved with ContinuationToken"
+description: "This Java reference sample shows how Cosmos DB Pagination can be achieved with ContinuationToken"
 ---
 
-# Achieving CosmosDB Pagination with ContinuationToken
+# Achieving Cosmos DB Pagination with ContinuationToken
 
 <!-- 
 Guidelines on README format: https://review.docs.microsoft.com/help/onboard/admin/samples/concepts/readme-template?branch=master
@@ -43,7 +43,7 @@ git clone https://github.com/Azure-Samples/azure-cosmosdb-java-pagination.git
 cd azure-cosmosdb-java-pagination 
 ```
 
-Update AccountSettings.java with cosmosdb hostname and key 
+Update AccountSettings.java with cosmos db hostname and key 
 
 
 ## Running the sample
@@ -59,7 +59,7 @@ executeSimpleQueryWithList();
 
 ## Key concepts
 
-CosmosDB ContinuationToken : Pagination of records can then be retrieved by supplying the continuation token in subsequent calls. The coordination between the CosmosDB service and the client is taken care of behind the scenes by the SDKs.
+Cosmos DB ContinuationToken : Pagination of records can then be retrieved by supplying the continuation token in subsequent calls. The coordination between the Cosmos DB service and the client is taken care of behind the scenes by the SDKs.
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
