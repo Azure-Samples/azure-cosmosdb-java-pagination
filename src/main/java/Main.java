@@ -2,44 +2,33 @@ import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Element;
 
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.azure.cosmos.ConsistencyLevel;
-import com.azure.cosmos.implementation.AsyncDocumentClient;
-import com.azure.cosmos.implementation.ConnectionPolicy;
-import com.azure.cosmos.implementation.Document;
+import com.azure.cosmos.CosmosClient;
+import com.azure.cosmos.CosmosClientBuilder;
+import com.azure.cosmos.CosmosContainer;
+import com.azure.cosmos.CosmosDatabase;
+import com.azure.cosmos.implementation.InternalObjectNode;
+import com.azure.cosmos.models.CosmosContainerProperties;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.models.FeedResponse;
+import com.azure.cosmos.util.CosmosPagedIterable;
 
 
 public class Main {
-    private final ExecutorService executorService;
-    private final Scheduler scheduler;
+    private CosmosClient client;
 
-    private AsyncDocumentClient client;
+    private CosmosDatabase database;
 
     private final String databaseName = "test-kcdb";
 
-    public Main() {
-        executorService = Executors.newFixedThreadPool(100);
-        scheduler = Schedulers.fromExecutor(executorService);
-    }
-
     public void close() {
-        executorService.shutdown();
         client.close();
     }
 
@@ -48,9 +37,9 @@ public class Main {
 
         try {
             p.getStartedDemo();
-            System.out.println(String.format("Demo complete, please hold while resources are released"));
+            System.out.println("Demo complete, please hold while resources are released");
         } catch (Exception e) {
-            System.err.println(String.format("DocumentDB GetStarted failed with %s", e));
+            System.err.printf("DocumentDB GetStarted failed with %s", e);
         } finally {
             System.out.println("close the client");
             p.close();
@@ -61,96 +50,56 @@ public class Main {
     private void getStartedDemo() throws Exception {
         System.out.println("Using Azure Cosmos DB endpoint: " + AccountSettings.HOST);
 
-        client = new AsyncDocumentClient.Builder()
-                .withServiceEndpoint(AccountSettings.HOST)
-                .withMasterKeyOrResourceToken(AccountSettings.MASTER_KEY)
-                .withConnectionPolicy(ConnectionPolicy.getDefaultPolicy())
-                .withConsistencyLevel(ConsistencyLevel.EVENTUAL)
-                .build();
+        client = new CosmosClientBuilder()
+            .endpoint(AccountSettings.HOST)
+            .key(AccountSettings.MASTER_KEY)
+            .consistencyLevel(ConsistencyLevel.SESSION)
+            .buildClient();
 
-        //Demo CosmosDB Pagination with ContinuationToken
-        //This method returns a map with nextContinuationtoken and prevContinuationToken with resultsets
-        //Which can be used in UI
-        QueryPageByPage();
+        database=client.getDatabase(databaseName);
+
+        //Demo CosmosDB Pagination
+        queryDocumentsByPage();
 
         //Demo Querying a Document with a list saved into Cache which can be used sliced in UI code for pagination
         executeSimpleQueryWithList();
     }
 
-    /*
-     Method demonstrated CosmosDB Pagination using ContinuationToken
-     This method returns represents client calling with page size
-     */
-    private void QueryPageByPage() throws JSONException {
-        int pageSize = 500; //No of docs per page
-        int currentPageNumber = 1;
-        int documentNumber = 1;
-        String continuationToken = null;
-
-        do {
-            System.out.println("Page " + currentPageNumber);
-            System.out.println("DocumentNumber " + documentNumber);
-            String nextContinuationKey = "";
-
-            // Loads ALL documents for the current page
-            HashMap<String, List<Document>> docsForCurrPage = QueryDocumentsByPage(currentPageNumber, pageSize, continuationToken);
-
-            for (Map.Entry<String, List<Document>> entry : docsForCurrPage.entrySet()) {
-                System.out.println("Continuationkey" + entry.getKey() + " = " + entry.getValue());
-                nextContinuationKey = entry.getKey();
-                documentNumber++;
-            }
-
-            // Ensure the continuation token is kept for the next page query execution
-            continuationToken = nextContinuationKey;
-            System.out.println("continuationToken3 " + continuationToken);
-            currentPageNumber++;
-        } while (continuationToken != null);
-    }
-
-    /* This method returns continuation token with list of records for pagination on UI or REST API call*/
-    private HashMap<String, List<Document>> QueryDocumentsByPage(int currentPageNumber, int pageSize, String continuationToken) throws JSONException {
-
-        HashMap<String, List<Document>> map = new HashMap<>();
-
+    private void queryDocumentsByPage() throws JSONException {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "volcanoCollection";
-        String sql = "SELECT * FROM volcanoCollection";
-
-        String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
-        Flux<FeedResponse<Document>> queryObservable =
-                client.queryDocuments(collectionLink,
-                        sql, queryOptions);
+        String contanierSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
+        System.out.println(contanierSql);
+        String itemSql = String.format("SELECT * FROM %s", collectionName);
+        System.out.println(itemSql);
+        CosmosPagedIterable<CosmosContainerProperties> queryObservable = database.queryContainers(contanierSql, queryOptions);
 
         //Observable to Interator
-        Mono<FeedResponse<Document>> it = queryObservable.next();
-        FeedResponse<Document> page=it.block();
-        List<Document> results = page.getResults();
-        
-        for (Document doc : results) {
-            JSONObject obj = new JSONObject(doc.toJson());
-            String id = obj.getString("id");
+        Iterator<FeedResponse<CosmosContainerProperties>> page = queryObservable.iterableByPage().iterator();
 
+        List<CosmosContainerProperties> results = page.next().getResults();
+
+        for (CosmosContainerProperties cosmosContainerProperties : results) {
+            String id = cosmosContainerProperties.getId();
+            CosmosContainer container = database.getContainer(id);
+            container.queryItems(itemSql, queryOptions, InternalObjectNode.class).forEach(item->{
+                System.out.println(item.toJson());
+            });
+            System.out.println(id);
         }
-        continuationToken = page.getContinuationToken();
-        System.out.println("continuationToken2: " + continuationToken);
-        map.put(continuationToken, results);
-        return map;
     }
 
     private void executeSimpleQueryWithList() throws JSONException {
-
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "ListItemDetailsCollection";
+        String contanierSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
+        System.out.println(contanierSql);
+        String itemSql = String.format("SELECT * FROM %s", collectionName);
+        System.out.println(itemSql);
 
-        String collectionLink = String.format("/dbs/%s/colls/%s", databaseName, collectionName);
-        Flux<FeedResponse<Document>> queryObservable =
-                client.queryDocuments(collectionLink,
-                        "SELECT * FROM ListItemDetailsCollection", queryOptions);
-
-        Mono<FeedResponse<Document>> it = queryObservable.next();
+        CosmosPagedIterable<CosmosContainerProperties> queryObservable = database.queryContainers(contanierSql, queryOptions);
 
         //1. Create a cache manager
         CacheManager cm = CacheManager.getInstance();
@@ -158,24 +107,33 @@ public class Main {
         //2. Get a cache called "listDocCache" defined in config
         Cache cache = cm.getCache("listDocCache");
 
-        FeedResponse<Document> page = it.block();
-        List<Document> results = page.getResults();
+        List<CosmosContainerProperties> results = queryObservable.iterableByPage().iterator().next().getResults();
+
         System.out.println("count " + results.size());
-        for (Document doc : results) {
-            JSONObject obj = new JSONObject(doc.toJson());
 
-            JSONArray ja_data = obj.getJSONArray("listItemDetails");
-            System.out.println("JSONArray : " + ja_data);
+        for (CosmosContainerProperties containerProperties : results) {
+            String id = containerProperties.getId();
+            CosmosContainer container = database.getContainer(id);
+            container.queryItems(itemSql, queryOptions, InternalObjectNode.class).forEach(item->{
+                try {
+                    JSONObject obj = new JSONObject(item.toJson());
+                    JSONArray ja_data = obj.getJSONArray("listItemDetails");
+                    System.out.println("JSONArray : " + ja_data);
 
-            int length = ja_data.length();
+                    int length = ja_data.length();
+                for (int i = 0; i < length; i++) {
+                    JSONObject jsonObj = ja_data.getJSONObject(i);
+                    //4. Put  elements in cache
+                    cache.put(new Element(i,jsonObj));
 
-            for (int i = 0; i < length; i++) {
-                JSONObject jsonObj = ja_data.getJSONObject(i);
-                //4. Put  elements in cache
-                cache.put(new Element(i,jsonObj));
-
-                System.out.println("array item: " + jsonObj.toString());
-            }
+                    System.out.println("array item: " + jsonObj.toString());
+                }
+                } catch (JSONException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            });
+            System.out.println(id);
         }
 
         System.out.println("Elements in the cache" + cache.getKeys().toString());
