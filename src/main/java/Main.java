@@ -6,19 +6,15 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.Iterator;
-import java.util.List;
-
 import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosClient;
 import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.CosmosDatabase;
-import com.azure.cosmos.implementation.InternalObjectNode;
 import com.azure.cosmos.models.CosmosContainerProperties;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
-import com.azure.cosmos.models.FeedResponse;
 import com.azure.cosmos.util.CosmosPagedIterable;
+import com.fasterxml.jackson.databind.JsonNode;
 
 
 public class Main {
@@ -33,10 +29,21 @@ public class Main {
     }
 
     public static void main(String[] args) {
+        final String accountHost = System.getProperty("ACCOUNT_HOST", "").trim();
+        final String accountKey = System.getProperty("ACCOUNT_KEY", "").trim();
+
+        if (accountKey.isEmpty()) {
+            System.err.println("ACCOUNT_KEY is not set");
+            return;
+        } else if (accountHost.isEmpty()) {
+            System.err.println("ACCOUNT_HOST is not set");
+            return;
+        }
+
         Main p = new Main();
 
         try {
-            p.getStartedDemo();
+            p.getStartedDemo(accountHost, accountKey);
             System.out.println("Demo complete, please hold while resources are released");
         } catch (Exception e) {
             System.err.printf("DocumentDB GetStarted failed with %s", e);
@@ -47,12 +54,12 @@ public class Main {
         System.exit(0);
     }
 
-    private void getStartedDemo() throws Exception {
-        System.out.println("Using Azure Cosmos DB endpoint: " + AccountSettings.HOST);
+    private void getStartedDemo(String accountHost, String accountKey) throws Exception {
+        System.out.println("Using Azure Cosmos DB endpoint: " + accountHost);
 
         client = new CosmosClientBuilder()
-            .endpoint(AccountSettings.HOST)
-            .key(AccountSettings.MASTER_KEY)
+            .endpoint(accountHost)
+            .key(accountKey)
             .consistencyLevel(ConsistencyLevel.SESSION)
             .buildClient();
 
@@ -69,22 +76,20 @@ public class Main {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "volcanoCollection";
-        String contanierSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
-        System.out.println(contanierSql);
+        String containerSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
+        System.out.println(containerSql);
         String itemSql = String.format("SELECT * FROM %s", collectionName);
         System.out.println(itemSql);
-        CosmosPagedIterable<CosmosContainerProperties> queryObservable = database.queryContainers(contanierSql, queryOptions);
 
-        //Observable to Interator
-        Iterator<FeedResponse<CosmosContainerProperties>> page = queryObservable.iterableByPage().iterator();
+        CosmosPagedIterable<CosmosContainerProperties> results = database.queryContainers(containerSql, queryOptions);
 
-        List<CosmosContainerProperties> results = page.next().getResults();
-
+        // Iterating through all the results.
+        // If there are more than a single page of results, it will auto-magically fetch the next page.
         for (CosmosContainerProperties cosmosContainerProperties : results) {
             String id = cosmosContainerProperties.getId();
             CosmosContainer container = database.getContainer(id);
-            container.queryItems(itemSql, queryOptions, InternalObjectNode.class).forEach(item->{
-                System.out.println(item.toJson());
+            container.queryItems(itemSql, queryOptions, JsonNode.class).forEach(item->{
+                System.out.println(item.toString());
             });
             System.out.println(id);
         }
@@ -94,12 +99,12 @@ public class Main {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "ListItemDetailsCollection";
-        String contanierSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
-        System.out.println(contanierSql);
+        String containerSql = String.format("SELECT * from c where c.id = '%s'", collectionName);
+        System.out.println(containerSql);
         String itemSql = String.format("SELECT * FROM %s", collectionName);
         System.out.println(itemSql);
 
-        CosmosPagedIterable<CosmosContainerProperties> queryObservable = database.queryContainers(contanierSql, queryOptions);
+        CosmosPagedIterable<CosmosContainerProperties> results = database.queryContainers(containerSql, queryOptions);
 
         //1. Create a cache manager
         CacheManager cm = CacheManager.getInstance();
@@ -107,16 +112,14 @@ public class Main {
         //2. Get a cache called "listDocCache" defined in config
         Cache cache = cm.getCache("listDocCache");
 
-        List<CosmosContainerProperties> results = queryObservable.iterableByPage().iterator().next().getResults();
-
-        System.out.println("count " + results.size());
-
+        // Iterating through all the results.
+        // If there are more than a single page of results, it will auto-magically fetch the next page.
         for (CosmosContainerProperties containerProperties : results) {
             String id = containerProperties.getId();
             CosmosContainer container = database.getContainer(id);
-            container.queryItems(itemSql, queryOptions, InternalObjectNode.class).forEach(item->{
+            container.queryItems(itemSql, queryOptions, JsonNode.class).forEach(item->{
                 try {
-                    JSONObject obj = new JSONObject(item.toJson());
+                    JSONObject obj = new JSONObject(item.toString());
                     JSONArray ja_data = obj.getJSONArray("listItemDetails");
                     System.out.println("JSONArray : " + ja_data);
 
