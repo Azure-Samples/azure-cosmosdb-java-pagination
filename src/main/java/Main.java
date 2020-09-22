@@ -2,9 +2,7 @@ import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Element;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.util.List;
 
 import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosClient;
@@ -14,8 +12,6 @@ import com.azure.cosmos.CosmosDatabase;
 import com.azure.cosmos.models.CosmosContainerProperties;
 import com.azure.cosmos.models.CosmosQueryRequestOptions;
 import com.azure.cosmos.util.CosmosPagedIterable;
-import com.fasterxml.jackson.databind.JsonNode;
-
 
 public class Main {
     private CosmosClient client;
@@ -51,7 +47,6 @@ public class Main {
             System.out.println("close the client");
             p.close();
         }
-        System.exit(0);
     }
 
     private void getStartedDemo(String accountHost, String accountKey) throws Exception {
@@ -63,16 +58,16 @@ public class Main {
             .consistencyLevel(ConsistencyLevel.SESSION)
             .buildClient();
 
-        database=client.getDatabase(databaseName);
+        database = client.getDatabase(databaseName);
 
-        //Demo CosmosDB Pagination
+        // Demo CosmosDB Pagination
         queryDocumentsByPage();
 
-        //Demo Querying a Document with a list saved into Cache which can be used sliced in UI code for pagination
+        // Demo Querying a Document with a list saved into Cache which can be used sliced in UI code for pagination
         executeSimpleQueryWithList();
     }
 
-    private void queryDocumentsByPage() throws JSONException {
+    private void queryDocumentsByPage() {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "volcanoCollection";
@@ -88,14 +83,14 @@ public class Main {
         for (CosmosContainerProperties cosmosContainerProperties : results) {
             String id = cosmosContainerProperties.getId();
             CosmosContainer container = database.getContainer(id);
-            container.queryItems(itemSql, queryOptions, JsonNode.class).forEach(item->{
+            container.queryItems(itemSql, queryOptions, TestObject.class).forEach(item -> {
                 System.out.println(item.toString());
             });
             System.out.println(id);
         }
     }
 
-    private void executeSimpleQueryWithList() throws JSONException {
+    private void executeSimpleQueryWithList(){
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "ListItemDetailsCollection";
@@ -106,10 +101,10 @@ public class Main {
 
         CosmosPagedIterable<CosmosContainerProperties> results = database.queryContainers(containerSql, queryOptions);
 
-        //1. Create a cache manager
+        // 1. Create a cache manager
         CacheManager cm = CacheManager.getInstance();
 
-        //2. Get a cache called "listDocCache" defined in config
+        // 2. Get a cache called "listDocCache" defined in config
         Cache cache = cm.getCache("listDocCache");
 
         // Iterating through all the results.
@@ -117,43 +112,33 @@ public class Main {
         for (CosmosContainerProperties containerProperties : results) {
             String id = containerProperties.getId();
             CosmosContainer container = database.getContainer(id);
-            container.queryItems(itemSql, queryOptions, JsonNode.class).forEach(item->{
-                try {
-                    JSONObject obj = new JSONObject(item.toString());
-                    JSONArray ja_data = obj.getJSONArray("listItemDetails");
-                    System.out.println("JSONArray : " + ja_data);
-
-                    int length = ja_data.length();
-                for (int i = 0; i < length; i++) {
-                    JSONObject jsonObj = ja_data.getJSONObject(i);
-                    //4. Put  elements in cache
-                    cache.put(new Element(i,jsonObj));
-
-                    System.out.println("array item: " + jsonObj.toString());
-                }
-                } catch (JSONException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+            container.queryItems(itemSql, queryOptions, TestObject.class).forEach(item -> {
+                List<ItemDetail> listItemDetails = item.getListItemDetails();
+                System.out.println(listItemDetails);
+                for (int i = 0; i < listItemDetails.size(); i++) {
+                    ItemDetail itemDetailObject = listItemDetails.get(i);
+                    // 4. Put elements in cache
+                    cache.put(new Element(i, itemDetailObject));
+                    System.out.println("item detail: " + itemDetailObject.toString());
                 }
             });
             System.out.println(id);
         }
 
-        System.out.println("Elements in the cache" + cache.getKeys().toString());
+        System.out.println("Elements in the cache " + cache.getKeys().toString());
         Element ele = cache.get(0);
 
-        //5. Print out the element
+        // 5. Print out the element
         String output = (ele == null ? null : ele.getObjectValue().toString());
-        System.out.println("Element in the cache" + output);
+        System.out.println("Element in the cache " + output);
 
-        //6. Is key in cache?
-        System.out.println(cache.isKeyInCache(0)); //true
+        // 6. Is key in cache?
+        System.out.println(cache.isKeyInCache(0)); // true
         System.out.println(cache.isKeyInCache(7)); // false
 
-        //This cache can be used in UI with slicing for pagination
+        // This cache can be used in UI with slicing for pagination
 
-        //7. shut down the cache manager
+        // 7. shut down the cache manager
         cm.shutdown();
     }
 }
-
