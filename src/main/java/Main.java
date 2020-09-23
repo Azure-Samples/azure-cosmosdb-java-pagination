@@ -90,7 +90,7 @@ public class Main {
         }
     }
 
-    private void executeSimpleQueryWithList(){
+    private void executeSimpleQueryWithList() {
         CosmosQueryRequestOptions queryOptions = new CosmosQueryRequestOptions();
 
         String collectionName = "ListItemDetailsCollection";
